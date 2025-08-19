@@ -45,6 +45,8 @@ ttmd		"table to Markdown", takes a table with arbitrary separator
 
 sin		"Script Init", creates a script with the name provided as 1st
 		argument, and fills it with necessary boring boilerplate
+
+shide		Hide the `slurm-35581944.out` files from view.
 EOF
 }
 
@@ -245,6 +247,12 @@ sin() {
 	fi
 }
 
+shide () {
+	[[ ! -d .slurm_outs ]] && mkdir -p .slurm_outs
+
+	mv slurm-*.out .slurm_outs
+}
+
 #
 # === Evaluate subcommands ===
 # 
@@ -253,16 +261,11 @@ subcmd=$1
 
 case $subcmd in
 	pinfo) shift; pinfo ;;
-
 	cbf) shift; cbf $@ ;;
-
 	sfa) shift; sfa $@ ;;
-
 	eln) shift; eln $@ ;;
-
 	ttmd) shift; ttmd $@ ;;
-
 	sin) shift; sin $@ ;;
-
+	shide) shift; shide $@ ;;
 	*) help >&2; exit 1 ;;
 esac
