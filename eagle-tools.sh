@@ -6,47 +6,50 @@
 set -e
 set -o pipefail
 
-#
 # === Parsing config ===
-#
 
 # I need to think about this...
 #CFG_PATH="$(awk -F ' = ' '$1 == "executable_path" {print $2}' config)"
 CFG_PATH=/home/maciej/.local/bin/
 
-#
 # === Help/usage ===
-#
 
 help() {
 cat << EOF
 usage: eagle-tools.sh [-h] SUBCOMMAND ...
 
 Subcommands:
-pinfo		Get information about available partitions (name, nodes, cpus,
-		memory/node). Takes no arguments.
+pinfo	Get information about available partitions (name, nodes, cpus,
+	memory/node). Takes no arguments.
 
-cbf		"Compare Big File", computes a md5sum of N initial lines
-		(default is 1000, can be specified by -s N). Run with -h for
-		help. Gzipped files MUST be passed with -g option
+cbf	"Compare Big File", computes a md5sum of N initial lines
+	(default is 1000, can be specified by -s N). Run with -h for
+	help. Gzipped files MUST be passed with -g option
 
-sampler		Used to generate smaller versions from large fasta/fastq files
-		for pipeline testing. [under construction, can't be invoked yet]
+sampler	Used to generate smaller versions from large fasta/fastq files
+	for pipeline testing. [under construction, can't be invoked yet]
 
-sfa		"Split FASTA", splits a multi header fasta into separate files.
-		Might be useful for disassembling genomes into chromosomes. Use
-		-g for gzipped files
+sfa	"Split FASTA", splits a multi header fasta into separate files.
+	Might be useful for disassembling genomes into chromosomes. Use
+	-g for gzipped files
 
-eln		"Executable ln", creates a link to specified file in my \$PATH
+eln	"Executable ln", creates a link to specified file in my \$PATH
 
-ttmd		"table to Markdown", takes a table with arbitrary separator
-		(specified by -s if other than whitespace) and outputs a
-		Markdown formated table. First row is treated as header.
+ttmd	"table to Markdown", takes a table with arbitrary separator
+	(specified by -s if other than whitespace) and outputs a
+	Markdown formated table. First row is treated as header.
 
-sin		"Script Init", creates a script with the name provided as 1st
-		argument, and fills it with necessary boring boilerplate
+sin	"Script Init", creates a script with the name provided as 1st
+	argument, and fills it with necessary boring boilerplate
 
-shide		Hide the `slurm-35581944.out` files from view.
+shide	Hide the `slurm-35581944.out` files from view.
+
+inter	Run interactive job from preset.
+	light:		 4 CPUs,  16G RAM, 1 day
+	medium:		 8 CPUs,  32G RAM, 2 days
+	heavy:		32 CPUs, 128G RAM, 7 days
+	hic (high CPU):	32 CPUs,  16G RAM, 2 days
+	him (high mem):  8 CPUs, 128G RMA, 2 days
 EOF
 }
 
@@ -59,8 +62,8 @@ pinfo() {
 	# Partition info
 	# Print info about accessible partitions as a nice table
 	#
-	sinfo -o "%P %D %c %m" | \
-		awk '{printf("%-16s\t%5s\t%10s\t%12s\n", $1, $2, $3, $4)}' || \
+	sinfo -o "%P %D %c %m %l" | \
+		awk '{printf("%-16s\t%5s\t%10s\t%12s\n", $1, $2, $3, $4/1000, $5)}' || \
 		echo "It seems you are not working on a SLURM HPC"
 }
 cbf() {
@@ -247,15 +250,51 @@ sin() {
 	fi
 }
 
-shide () {
+shide() {
 	[[ ! -d .slurm_outs ]] && mkdir -p .slurm_outs
 
 	mv slurm-*.out .slurm_outs
 }
 
-#
+
+inter() {
+	local CPU
+	local MEM
+	local TIME
+
+	if [[ $1 == "light" ]]; then
+		CPU=4
+		MEM="16G"
+		TIME="1-00:00:00"
+	elif [[ $1 == "medium" ]]; then
+		CPU=8
+		MEM="32G"
+		TIME="2-00:00:00"
+	elif [[ $1 == "heavy" ]]; then
+		CPU=32
+		MEM="128G"
+		TIME="7-00:00:00"
+	elif [[ $1 == "hic" ]]; then
+		CPU=32
+		MEM="16G"
+		TIME="2-00:00:00"
+	elif [[ $1 == "him" ]]; then
+		CPU=8
+		MEM="128G"
+		TIME="2-00:00:00"
+	else
+		echo "Wrong preset. Pick one from: light, medium, heavy"
+		return 1
+	fi
+
+	srun \
+		--cpus-per-task=$CPU \
+		--mem=$MEM \
+		--time=$TIME \
+		--pty bash
+}
+
 # === Evaluate subcommands ===
-# 
 
 subcmd=$1
 
@@ -267,5 +306,6 @@ case $subcmd in
 	ttmd) shift; ttmd $@ ;;
 	sin) shift; sin $@ ;;
 	shide) shift; shide $@ ;;
+	inter) shift; inter $@ ;;
 	*) help >&2; exit 1 ;;
 esac
